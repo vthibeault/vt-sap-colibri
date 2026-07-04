@@ -4,6 +4,7 @@ import type {
   CostLine,
   Milestone,
   NetworkActivity,
+  NewProjectInput,
   ProjectDefinition,
   SapUser,
   SystemStatus,
@@ -235,6 +236,36 @@ export class ODataSapClient implements SapPsClient {
       commitment: 0,
       percentComplete: 0,
     }));
+  }
+
+  async createProject(input: NewProjectInput): Promise<ProjectDefinition> {
+    // POST A_EnterpriseProject creates the definition; WBS elements are
+    // created as A_EnterpriseProjectElement children afterwards. Budget is a
+    // controlling document, not a master-data field — wire it via the budget
+    // availability-control API of your tenant. TODO verify the mandatory
+    // fields (EntProjectProfile etc.) against $metadata.
+    const start = input.startDate;
+    const end = new Date(new Date(start).getTime() + input.months * 30.4 * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    const res = await this.modify(`${EPM_SRV}/A_EnterpriseProject`, 'POST', {
+      ProjectDescription: input.description,
+      ProjectProfileCode: input.profile,
+      ProjectStartDate: start,
+      ProjectEndDate: end,
+      ResponsiblePersonName: input.responsible,
+    });
+    const body = (await res.json()) as { d?: RawEnterpriseProject };
+    if (!body.d) throw new Error('SAP did not return the created project.');
+    const project = this.mapProject(body.d);
+    for (const [i, phase] of input.phases.entries()) {
+      await this.modify(`${EPM_SRV}/A_EnterpriseProjectElement`, 'POST', {
+        ProjectUUID: body.d.ProjectUUID,
+        ProjectElement: `${project.projectId}.${i + 1}`,
+        ProjectElementDescription: phase.name,
+      });
+    }
+    return { ...project, budget: input.budget, priority: input.priority };
   }
 
   async getActivities(_projectId: string): Promise<NetworkActivity[]> {

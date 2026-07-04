@@ -5,6 +5,7 @@ import { Login } from '@/pages/Login';
 import { Dashboard } from '@/pages/Dashboard';
 import { Projects } from '@/pages/Projects';
 import { ProjectDetail } from '@/pages/ProjectDetail';
+import { Resources } from '@/pages/Resources';
 import { BrandStudio } from '@/pages/BrandStudio';
 import { Integration } from '@/pages/Integration';
 
@@ -39,6 +40,7 @@ export function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/projects" element={<Projects />} />
         <Route path="/projects/:id" element={<ProjectDetail />} />
+        <Route path="/resources" element={<Resources />} />
         <Route path="/studio" element={<BrandStudio />} />
         <Route path="/integration" element={<Integration />} />
       </Route>

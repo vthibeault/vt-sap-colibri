@@ -4,6 +4,7 @@ import type {
   CostLine,
   Milestone,
   NetworkActivity,
+  NewProjectInput,
   ProjectDefinition,
   SapUser,
   SystemStatus,
@@ -65,9 +66,16 @@ export const PERSONAS: Persona[] = [
 
 const EDITS_KEY = 'colibri.mock.edits';
 
+interface CreatedProject {
+  project: ProjectDefinition;
+  wbs: WbsElement[];
+  activities: NetworkActivity[];
+}
+
 interface MockEdits {
   activities: Record<string, NetworkActivity[]>;
   statuses: Record<string, SystemStatus>;
+  created?: CreatedProject[];
 }
 
 function loadEdits(): MockEdits {
@@ -77,7 +85,7 @@ function loadEdits(): MockEdits {
   } catch {
     /* start fresh */
   }
-  return { activities: {}, statuses: {} };
+  return { activities: {}, statuses: {}, created: [] };
 }
 
 /**
@@ -116,7 +124,8 @@ export class MockSapClient implements SapPsClient {
   }
 
   async listProjects(): Promise<ProjectDefinition[]> {
-    const projects = this.data.projects.map((p) => ({
+    const created = (this.edits.created ?? []).map((c) => c.project);
+    const projects = [...created, ...this.data.projects].map((p) => ({
       ...p,
       status: this.edits.statuses[p.projectId] ?? p.status,
     }));
@@ -129,13 +138,21 @@ export class MockSapClient implements SapPsClient {
     return p;
   }
 
+  private createdFor(projectId: string): CreatedProject | undefined {
+    return (this.edits.created ?? []).find((c) => c.project.projectId === projectId);
+  }
+
   async getWbsElements(projectId: string): Promise<WbsElement[]> {
-    return this.simulate(this.data.wbs.filter((w) => w.projectId === projectId));
+    const created = this.createdFor(projectId);
+    return this.simulate(created ? created.wbs : this.data.wbs.filter((w) => w.projectId === projectId));
   }
 
   async getActivities(projectId: string): Promise<NetworkActivity[]> {
     const edited = this.edits.activities[projectId];
-    return this.simulate(edited ?? this.data.activities.filter((a) => a.projectId === projectId));
+    const created = this.createdFor(projectId);
+    return this.simulate(
+      edited ?? created?.activities ?? this.data.activities.filter((a) => a.projectId === projectId),
+    );
   }
 
   async getMilestones(projectId: string): Promise<Milestone[]> {
@@ -147,6 +164,115 @@ export class MockSapClient implements SapPsClient {
       ? this.data.costLines.filter((c) => c.projectId === projectId)
       : this.data.costLines;
     return this.simulate(lines, 150, 450);
+  }
+
+  async createProject(input: NewProjectInput): Promise<ProjectDefinition> {
+    // Next free id in the NEO-26xx range, counting created projects too.
+    const all = [...(this.edits.created ?? []).map((c) => c.project), ...this.data.projects];
+    const maxNum = Math.max(
+      2610,
+      ...all
+        .map((p) => /^NEO-(\d+)$/.exec(p.projectId)?.[1])
+        .filter((n): n is string => !!n)
+        .map(Number),
+    );
+    const projectId = `NEO-${maxNum + 1}`;
+
+    const start = new Date(input.startDate);
+    const spanDays = Math.max(30, Math.round(input.months * 30.4));
+    const end = new Date(start.getTime() + spanDays * 86_400_000);
+    const iso = (d: Date) => d.toISOString().slice(0, 10);
+
+    const totalShare = input.phases.reduce((s, ph) => s + ph.share, 0) || 1;
+    const project: ProjectDefinition = {
+      projectId,
+      description: input.description,
+      profile: input.profile,
+      companyCode: '1010',
+      controllingArea: 'A000',
+      responsible: input.responsible,
+      status: 'CRTD',
+      priority: input.priority,
+      startDate: iso(start),
+      finishDate: iso(end),
+      budget: input.budget,
+      planCost: 0,
+      actualCost: 0,
+      commitment: 0,
+      currency: 'EUR',
+      percentComplete: 0,
+    };
+
+    const wbs: WbsElement[] = [
+      {
+        wbsId: projectId,
+        projectId,
+        description: input.description,
+        responsible: input.responsible,
+        status: 'CRTD',
+        startDate: iso(start),
+        finishDate: iso(end),
+        budget: input.budget,
+        planCost: 0,
+        actualCost: 0,
+        commitment: 0,
+        percentComplete: 0,
+      },
+    ];
+    const activities: NetworkActivity[] = [];
+
+    let cursor = 0;
+    let seq = 0;
+    let prevLast: string | null = null;
+    input.phases.forEach((phase, pi) => {
+      const share = phase.share / totalShare;
+      const phaseSpan = Math.max(10, Math.round(spanDays * share));
+      const pStart = new Date(start.getTime() + cursor * 86_400_000);
+      const pEnd = new Date(Math.min(pStart.getTime() + phaseSpan * 86_400_000, end.getTime()));
+      const wbsId = `${projectId}.${pi + 1}`;
+      wbs.push({
+        wbsId,
+        projectId,
+        parentWbsId: projectId,
+        description: phase.name,
+        responsible: input.responsible,
+        status: 'CRTD',
+        startDate: iso(pStart),
+        finishDate: iso(pEnd),
+        budget: Math.round(input.budget * share),
+        planCost: 0,
+        actualCost: 0,
+        commitment: 0,
+        percentComplete: 0,
+      });
+      // A starter chain of activities per phase — refine in the Gantt editor.
+      const names = ['Prepare', 'Execute', 'Review & handover'];
+      const per = Math.max(4, Math.round(phaseSpan / names.length));
+      names.forEach((name, ai) => {
+        seq += 10;
+        const id = String(seq).padStart(4, '0');
+        activities.push({
+          activityId: id,
+          projectId,
+          wbsId,
+          description: `${name} — ${phase.name}`,
+          startDay: cursor + ai * per,
+          duration: per,
+          dependsOn: ai === 0 ? (prevLast ? [prevLast] : []) : [String(seq - 10).padStart(4, '0')],
+          progress: 0,
+          workCenter: 'PMO',
+          optimistic: Math.max(2, Math.round(per * 0.7)),
+          likely: per,
+          pessimistic: Math.round(per * 1.6),
+        });
+      });
+      prevLast = String(seq).padStart(4, '0');
+      cursor += Math.round(phaseSpan * 0.9);
+    });
+
+    this.edits.created = [...(this.edits.created ?? []), { project, wbs, activities }];
+    this.saveEdits();
+    return this.simulate(project, 350, 700);
   }
 
   async updateActivities(projectId: string, activities: NetworkActivity[]): Promise<void> {

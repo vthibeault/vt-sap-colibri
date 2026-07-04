@@ -13,7 +13,9 @@ change morphs, every entrance is staggered, every hover breathes.
 | Area | What you get |
 |---|---|
 | **Portfolio overview** | Animated KPI tiles with count-ups & sparklines, `BudgetFlowChart` of the active portfolio (ribbon = budget, fill = burn, color = health), spend `StreamChart`, cumulative burn, health table |
-| **Projects** | Searchable, filterable, staggered project cards with CPI / progress / health |
+| **Projects** | Searchable, filterable, staggered project cards with CPI / progress / health, plus a guided **New project wizard** (template phases, budget shares, review) that posts through the SAP seam |
+| **Resources** | Portfolio work-centre load: brand-aware heatmap of scheduled activity-days per centre and month, stacked demand by project |
+| **⌘K palette** | Command palette from anywhere: jump to any project or page, toggle dark mode, start a new project — authorization-aware |
 | **Project workspace** | Overview (budget flow per phase, milestones, waterfall), **WBS & Schedule** (`CascadeChart` critical-path what-if + a full MS-Project-style `GanttEditor` with save-back), **Costs** (stacked categories, treemap, burn), **Forecast** (`ForecastChart` Monte-Carlo ridges, P50/P85/P95) |
 | **Brand studio** | Live white-labeling: name, monogram, accent, radius, typography, light/dark/system, validated chart palettes — applied instantly across the app *and* every chart |
 | **Integration** | Mock ⇄ live switch, gateway config, connection test, and an honest map of which SAP endpoints are wired vs. need mapping |

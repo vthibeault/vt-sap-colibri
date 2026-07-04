@@ -1,11 +1,13 @@
 import { useMemo, useState, type CSSProperties } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSapData } from '@/hooks/useSapData';
+import { useAuth } from '@/state/AuthContext';
 import type { SystemStatus } from '@/sap/types';
 import { fmtDate, fmtMoney } from '@/lib/format';
 import { cpi, projectHealth } from '@/lib/metrics';
 import { HealthChip, Meter, Skeleton, StatusChip, EmptyState } from '@/components/ui';
-import { IconSearch } from '@/components/icons';
+import { NewProjectWizard } from '@/components/NewProjectWizard';
+import { IconPlus, IconSearch } from '@/components/icons';
 
 const STATUS_FILTERS: { id: SystemStatus | 'ALL'; label: string }[] = [
   { id: 'ALL', label: 'All' },
@@ -17,9 +19,13 @@ const STATUS_FILTERS: { id: SystemStatus | 'ALL'; label: string }[] = [
 
 export function Projects() {
   const navigate = useNavigate();
-  const { data, loading } = useSapData((c) => c.listProjects());
+  const { can } = useAuth();
+  const { data, loading, reload } = useSapData((c) => c.listProjects());
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<SystemStatus | 'ALL'>('ALL');
+  const [params, setParams] = useSearchParams();
+  const wizardOpen = params.get('new') === '1';
+  const setWizardOpen = (open: boolean) => setParams(open ? { new: '1' } : {}, { replace: true });
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -53,7 +59,15 @@ export function Projects() {
             </button>
           ))}
         </div>
+        <span style={{ flex: 1 }} />
+        {can('C_PROJ', '01') && (
+          <button className="btn primary" onClick={() => setWizardOpen(true)}>
+            <IconPlus style={{ width: 15, height: 15 }} /> New project
+          </button>
+        )}
       </div>
+
+      {wizardOpen && <NewProjectWizard onClose={() => setWizardOpen(false)} onCreated={reload} />}
 
       {loading ? (
         <div className="project-grid">

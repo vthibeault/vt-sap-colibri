@@ -3,6 +3,7 @@ import type {
   CostLine,
   Milestone,
   NetworkActivity,
+  NewProjectInput,
   ProjectDefinition,
   SapUser,
   SystemStatus,
@@ -28,6 +29,8 @@ export interface SapPsClient {
   /** Cost lines for one project, or the whole portfolio when omitted. */
   getCostLines(projectId?: string): Promise<CostLine[]>;
 
+  /** Create a project definition with its phase WBS skeleton. */
+  createProject(input: NewProjectInput): Promise<ProjectDefinition>;
   /** Persist a rescheduled activity network (from the Gantt editor). */
   updateActivities(projectId: string, activities: NetworkActivity[]): Promise<void>;
   /** Set a project's system status (release, TECO, close…). */

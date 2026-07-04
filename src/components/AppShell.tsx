@@ -2,12 +2,14 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/state/AuthContext';
 import { useBrand } from '@/state/BrandContext';
 import { useSap } from '@/state/SapContext';
-import { IconDashboard, IconLogout, IconMoon, IconPlug, IconProjects, IconStudio, IconSun } from './icons';
+import { IconDashboard, IconLogout, IconMoon, IconPlug, IconProjects, IconStudio, IconSun, IconUsers } from './icons';
+import { CommandPalette } from './CommandPalette';
 import { Toasts } from './ui';
 
 const TITLES: [RegExp, string][] = [
   [/^\/projects\/.+/, 'Project workspace'],
   [/^\/projects/, 'Projects'],
+  [/^\/resources/, 'Resources'],
   [/^\/studio/, 'Brand studio'],
   [/^\/integration/, 'SAP integration'],
   [/^\/$/, 'Portfolio overview'],
@@ -43,6 +45,9 @@ export function AppShell() {
         <NavLink to="/projects" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <IconProjects /> <span className="nav-label">Projects</span>
         </NavLink>
+        <NavLink to="/resources" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+          <IconUsers /> <span className="nav-label">Resources</span>
+        </NavLink>
 
         <div className="nav-section">Platform</div>
         {can('Z_COLIBRI_BRAND', '02') && (
@@ -70,6 +75,7 @@ export function AppShell() {
         <header className="topbar">
           <h1>{title}</h1>
           <span className="spacer" />
+          <span className="kbd" title="Command palette">⌘K</span>
           <span className={`conn-badge ${client.mode}`} title="Data source">
             <span className="dot" />
             {client.mode === 'mock' ? 'Mock SAP' : 'Live SAP'}
@@ -85,6 +91,7 @@ export function AppShell() {
           </div>
         </main>
       </div>
+      <CommandPalette />
       <Toasts />
     </div>
   );

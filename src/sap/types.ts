@@ -145,6 +145,21 @@ export interface SapUser {
   authorizations: Authorization[];
 }
 
+/** Input for creating a project (definition + phase WBS skeleton). */
+export interface NewProjectInput {
+  description: string;
+  profile: string;
+  priority: ProjectPriority;
+  responsible: string;
+  /** ISO date. */
+  startDate: string;
+  /** Planned duration in months. */
+  months: number;
+  budget: number;
+  /** Phase skeleton; shares should sum to ~1 (they are normalized). */
+  phases: { name: string; share: number }[];
+}
+
 export interface ConnectionInfo {
   ok: boolean;
   mode: 'mock' | 'live';
