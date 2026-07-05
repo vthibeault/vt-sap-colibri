@@ -3,7 +3,7 @@ import { useCountUp } from '@/hooks/useCountUp';
 import { onToast, type ToastMessage } from '@/lib/toast';
 import type { SystemStatus } from '@/sap/types';
 import type { Health } from '@/lib/metrics';
-import { HEALTH_LABEL } from '@/lib/metrics';
+import { useI18n } from '@/i18n';
 
 // ── Cards ────────────────────────────────────────────────────────────────────
 
@@ -92,28 +92,23 @@ export function Sparkline({ data, className }: { data: number[]; className?: str
 
 // ── Status ───────────────────────────────────────────────────────────────────
 
-const STATUS_LABEL: Record<SystemStatus, string> = {
-  CRTD: 'Created',
-  REL: 'Released',
-  TECO: 'Tech. complete',
-  CLSD: 'Closed',
-};
-
 export function StatusChip({ status }: { status: SystemStatus }) {
+  const { t } = useI18n();
   return (
     <span className={`status-chip ${status}`}>
       <span className="dot" />
-      {STATUS_LABEL[status]}
+      {t(`status.${status}`)}
     </span>
   );
 }
 
 export function HealthChip({ health }: { health: Health }) {
+  const { t } = useI18n();
   const cls = health === 'good' ? 'health-good' : health === 'warn' ? 'health-warn' : 'health-bad';
   return (
     <span className={`status-chip ${cls}`}>
       <span className="dot" />
-      {HEALTH_LABEL[health]}
+      {t(`health.${health}`)}
     </span>
   );
 }

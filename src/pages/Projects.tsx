@@ -9,18 +9,14 @@ import { exportCsv } from '@/lib/csv';
 import { HealthChip, Meter, Skeleton, StatusChip, EmptyState } from '@/components/ui';
 import { NewProjectWizard } from '@/components/NewProjectWizard';
 import { IconPlus, IconSearch } from '@/components/icons';
+import { useI18n } from '@/i18n';
 
-const STATUS_FILTERS: { id: SystemStatus | 'ALL'; label: string }[] = [
-  { id: 'ALL', label: 'All' },
-  { id: 'CRTD', label: 'Created' },
-  { id: 'REL', label: 'Released' },
-  { id: 'TECO', label: 'Tech. complete' },
-  { id: 'CLSD', label: 'Closed' },
-];
+const STATUS_FILTERS: (SystemStatus | 'ALL')[] = ['ALL', 'CRTD', 'REL', 'TECO', 'CLSD'];
 
 export function Projects() {
   const navigate = useNavigate();
   const { can } = useAuth();
+  const { t } = useI18n();
   const { data, loading, reload } = useSapData((c) => c.listProjects());
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<SystemStatus | 'ALL'>('ALL');
@@ -48,15 +44,15 @@ export function Projects() {
           <input
             className="input"
             style={{ paddingLeft: 36 }}
-            placeholder="Search projects, ids, people…"
+            placeholder={t('common.searchProjects')}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
         <div className="chip-row">
           {STATUS_FILTERS.map((f) => (
-            <button key={f.id} className={`chip ${status === f.id ? 'on' : ''}`} onClick={() => setStatus(f.id)}>
-              {f.label}
+            <button key={f} className={`chip ${status === f ? 'on' : ''}`} onClick={() => setStatus(f)}>
+              {t(`status.${f}`)}
             </button>
           ))}
         </div>
@@ -74,11 +70,11 @@ export function Projects() {
             )
           }
         >
-          Export CSV
+          {t('common.exportCsv')}
         </button>
         {can('C_PROJ', '01') && (
           <button className="btn primary" onClick={() => setWizardOpen(true)}>
-            <IconPlus style={{ width: 15, height: 15 }} /> New project
+            <IconPlus style={{ width: 15, height: 15 }} /> {t('common.newProject')}
           </button>
         )}
       </div>

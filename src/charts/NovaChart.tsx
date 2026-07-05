@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, type CSSProperties } from 'react';
 import { useBrand } from '@/state/BrandContext';
+import { useI18n } from '@/i18n';
 
 interface Destroyable {
   destroy(): void;
@@ -39,6 +40,7 @@ export function NovaChart<C extends Destroyable>({
   const hostRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<C | null>(null);
   const { themeKey } = useBrand();
+  const { locale } = useI18n(); // labels are formatted at create time
 
   useLayoutEffect(() => {
     const el = hostRef.current;
@@ -50,7 +52,7 @@ export function NovaChart<C extends Destroyable>({
       chart.destroy();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [themeKey, ...createDeps]);
+  }, [themeKey, locale, ...createDeps]);
 
   useEffect(() => {
     if (chartRef.current && update) update(chartRef.current);

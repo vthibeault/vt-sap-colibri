@@ -414,6 +414,39 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
 .toast.out { animation: fade var(--dur-2) reverse both; }
 .toast .t-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 
+/* ── Alerts bell ─────────────────────────────────────────────────────────── */
+
+.bell-badge {
+  position: absolute; top: -3px; right: -3px;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: 999px; background: var(--status-warn); color: #1a1a19;
+  font-size: 9.5px; font-weight: 800; line-height: 16px; text-align: center;
+  animation: pop var(--dur-3) var(--ease-spring) both;
+}
+.bell-badge.critical { background: var(--status-critical); color: #fff; }
+.alert-panel {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 70;
+  width: 360px; max-height: 60vh; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-m); box-shadow: var(--shadow-3); padding: 8px;
+  animation: pop var(--dur-2) var(--ease-spring) both;
+}
+.alert-panel-head {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-3); padding: 8px 10px 6px;
+}
+.alert-row {
+  display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left;
+  padding: 9px 10px; border: none; background: transparent; color: var(--text-2);
+  border-radius: var(--radius-s); cursor: pointer; font: inherit; font-size: 12.5px;
+  animation: rise var(--dur-2) var(--ease-out) both; animation-delay: calc(var(--i, 0) * 30ms);
+}
+.alert-row:hover { background: var(--surface-2); }
+.alert-row b { display: block; color: var(--text); font-size: 12.5px; }
+.alert-row .a-msg { display: block; line-height: 1.45; }
+.alert-row .a-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; margin-top: 5px; }
+.alert-empty { padding: 24px; text-align: center; color: var(--text-3); font-size: 12.5px; }
+
 /* ── Modal & wizard ──────────────────────────────────────────────────────── */
 
 .overlay {

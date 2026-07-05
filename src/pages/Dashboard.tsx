@@ -1,15 +1,93 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BudgetFlowChart, DonutChart, LineChart, StreamChart } from 'nova-charts';
+import { BudgetFlowChart, DonutChart, ForecastChart, LineChart, StreamChart, percentile, simulateSchedule } from 'nova-charts';
 import { useSapData } from '@/hooks/useSapData';
 import { fmtMoney, fmtPeriod } from '@/lib/format';
 import { cpi, cumulative, monthlyByCategory, monthlySeries, periodsOf, projectHealth } from '@/lib/metrics';
 import { TODAY } from '@/sap/mock/data';
+import { useI18n } from '@/i18n';
 import { NovaChart } from '@/charts/NovaChart';
 import { ChartCard, HealthChip, KpiTile, Meter, Skeleton, StatusChip } from '@/components/ui';
 
+const DAY = 86_400_000;
+
+/**
+ * Portfolio-level Monte-Carlo: simulate each project's own network, then
+ * express every project as one three-point "task" on a shared calendar
+ * (offset + P10/P50/P90 of its simulated finish). The ForecastChart's
+ * project row then reads as "the whole portfolio is done" — the max over
+ * all projects, uncertainty included.
+ */
+function PortfolioForecast() {
+  const { t } = useI18n();
+  const [confidence, setConfidence] = useState(85);
+  const { data, loading } = useSapData(async (client) => {
+    const projects = (await client.listProjects()).filter((p) => p.status === 'REL');
+    const lists = await Promise.all(projects.map((p) => client.getActivities(p.projectId)));
+    const anchor = Math.min(...projects.map((p) => new Date(p.startDate).getTime()));
+    const tasks = projects.map((p, i) => {
+      const sim = simulateSchedule(
+        lists[i].map((a) => ({
+          id: a.activityId,
+          optimistic: a.optimistic,
+          likely: a.likely,
+          pessimistic: a.pessimistic,
+          dependsOn: a.dependsOn,
+        })),
+        { iterations: 400, seed: 7 },
+      );
+      const offset = Math.round((new Date(p.startDate).getTime() - anchor) / DAY);
+      return {
+        id: p.projectId,
+        name: p.description.split(' · ')[0],
+        optimistic: offset + Math.round(percentile(sim.project, 10)),
+        likely: offset + Math.round(percentile(sim.project, 50)),
+        pessimistic: offset + Math.round(percentile(sim.project, 90)),
+      };
+    });
+    return { tasks, anchor };
+  });
+
+  return (
+    <ChartCard
+      title={t('dash.portfolioForecast')}
+      sub={t('dash.portfolioForecastSub')}
+      style={{ '--i': 7 } as React.CSSProperties}
+      actions={
+        <div className="segmented">
+          {[50, 85, 95].map((c) => (
+            <button key={c} className={confidence === c ? 'on' : ''} onClick={() => setConfidence(c)}>
+              P{c}
+            </button>
+          ))}
+        </div>
+      }
+    >
+      {loading || !data ? (
+        <Skeleton height={300} />
+      ) : (
+        <NovaChart
+          height={Math.max(280, (data.tasks.length + 1) * 52)}
+          createDeps={[confidence]}
+          create={(el) =>
+            new ForecastChart(el, {
+              iterations: 600,
+              confidence,
+              seed: 11,
+              start: new Date(data.anchor),
+              margin: { left: 120 },
+              tasks: data.tasks,
+            })
+          }
+        />
+      )}
+    </ChartCard>
+  );
+}
+
 export function Dashboard() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const projects = useSapData((c) => c.listProjects());
   const costs = useSapData((c) => c.getCostLines());
 
@@ -46,26 +124,26 @@ export function Dashboard() {
   return (
     <div className="grid">
       <div className="kpi-row">
-        <KpiTile index={0} label="Active projects" value={active.length} format={(v) => String(Math.round(v))} meta={<>{projects.data?.length ?? 0} total in portfolio</>} />
-        <KpiTile index={1} label="Portfolio budget" value={kpis.budget} format={fmtMoney} />
-        <KpiTile index={2} label="Actuals to date" value={kpis.actual} format={fmtMoney} spark={monthlyActualTotals.slice(-10)} />
-        <KpiTile index={3} label="Open commitments" value={kpis.commitment} format={fmtMoney} />
+        <KpiTile index={0} label={t('dash.activeProjects')} value={active.length} format={(v) => String(Math.round(v))} meta={t('dash.totalInPortfolio', { count: projects.data?.length ?? 0 })} />
+        <KpiTile index={1} label={t('dash.portfolioBudget')} value={kpis.budget} format={fmtMoney} />
+        <KpiTile index={2} label={t('dash.actualsToDate')} value={kpis.actual} format={fmtMoney} spark={monthlyActualTotals.slice(-10)} />
+        <KpiTile index={3} label={t('dash.openCommitments')} value={kpis.commitment} format={fmtMoney} />
         <KpiTile
           index={4}
-          label="Portfolio CPI"
+          label={t('dash.portfolioCpi')}
           value={kpis.cpi}
           format={(v) => v.toFixed(2)}
           delta={{
             direction: kpis.cpi >= 1 ? 'up' : kpis.cpi >= 0.9 ? 'flat' : 'down',
-            text: kpis.cpi >= 1 ? 'under plan' : 'over plan',
+            text: kpis.cpi >= 1 ? t('dash.underPlan') : t('dash.overPlan'),
           }}
         />
       </div>
 
       <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)' }}>
         <ChartCard
-          title="Budget flow"
-          sub="ribbon = budget · fill = spend · color = burn health"
+          title={t('dash.budgetFlow')}
+          sub={t('dash.budgetFlowSub')}
           style={{ '--i': 2 } as React.CSSProperties}
         >
           {loading ? (
@@ -92,7 +170,7 @@ export function Dashboard() {
           )}
         </ChartCard>
 
-        <ChartCard title="Budget by project" sub="share of portfolio" style={{ '--i': 3 } as React.CSSProperties}>
+        <ChartCard title={t('dash.budgetByProject')} sub={t('dash.budgetByProjectSub')} style={{ '--i': 3 } as React.CSSProperties}>
           {loading ? (
             <Skeleton height={320} />
           ) : (
@@ -116,7 +194,7 @@ export function Dashboard() {
       </div>
 
       <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)' }}>
-        <ChartCard title="Spend composition" sub="monthly actuals by cost category" style={{ '--i': 4 } as React.CSSProperties}>
+        <ChartCard title={t('dash.spendComposition')} sub={t('dash.spendCompositionSub')} style={{ '--i': 4 } as React.CSSProperties}>
           {loading ? (
             <Skeleton height={280} />
           ) : (
@@ -135,7 +213,7 @@ export function Dashboard() {
           )}
         </ChartCard>
 
-        <ChartCard title="Cumulative burn" sub="plan vs actuals, portfolio to date" style={{ '--i': 5 } as React.CSSProperties}>
+        <ChartCard title={t('dash.cumulativeBurn')} sub={t('dash.cumulativeBurnSub')} style={{ '--i': 5 } as React.CSSProperties}>
           {loading ? (
             <Skeleton height={280} />
           ) : (
@@ -147,8 +225,8 @@ export function Dashboard() {
                   data: {
                     labels: periods.past.map(fmtPeriod),
                     series: [
-                      { id: 'plan', name: 'Plan', data: cumulative(monthlySeries(costs.data ?? [], 'plan', periods.past)) },
-                      { id: 'actual', name: 'Actual', data: cumulative(monthlyActualTotals) },
+                      { id: 'plan', name: t('common.plan'), data: cumulative(monthlySeries(costs.data ?? [], 'plan', periods.past)) },
+                      { id: 'actual', name: t('common.actualSeries'), data: cumulative(monthlyActualTotals) },
                     ],
                   },
                   axes: { y: { format: (v) => fmtMoney(Number(v)) } },
@@ -159,21 +237,21 @@ export function Dashboard() {
         </ChartCard>
       </div>
 
-      <ChartCard title="Project health" sub="earned value vs actual cost" style={{ '--i': 6 } as React.CSSProperties}>
+      <ChartCard title={t('dash.projectHealth')} sub={t('dash.projectHealthSub')} style={{ '--i': 6 } as React.CSSProperties}>
         {loading ? (
           <Skeleton height={220} />
         ) : (
           <table className="data">
             <thead>
               <tr>
-                <th>Project</th>
-                <th>Status</th>
-                <th>Responsible</th>
-                <th className="num">Budget</th>
-                <th className="num">Actual</th>
+                <th>{t('col.project')}</th>
+                <th>{t('col.status')}</th>
+                <th>{t('col.responsible')}</th>
+                <th className="num">{t('col.budget')}</th>
+                <th className="num">{t('col.actual')}</th>
                 <th className="num">CPI</th>
-                <th style={{ width: 160 }}>Progress</th>
-                <th>Health</th>
+                <th style={{ width: 160 }}>{t('col.progress')}</th>
+                <th>{t('col.health')}</th>
               </tr>
             </thead>
             <tbody>
@@ -198,6 +276,8 @@ export function Dashboard() {
           </table>
         )}
       </ChartCard>
+
+      <PortfolioForecast />
     </div>
   );
 }

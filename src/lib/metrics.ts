@@ -10,6 +10,8 @@ export function cpi(p: ProjectDefinition): number {
 export type Health = 'good' | 'warn' | 'bad';
 
 export function projectHealth(p: ProjectDefinition): Health {
+  // A project that hasn't started earning value yet isn't "critical".
+  if (p.status === 'CRTD' || p.percentComplete === 0) return 'good';
   const index = cpi(p);
   if (index >= 0.95) return 'good';
   if (index >= 0.85) return 'warn';

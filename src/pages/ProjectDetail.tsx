@@ -24,6 +24,7 @@ import { NovaChart } from '@/charts/NovaChart';
 import { ChartCard, HealthChip, KpiTile, Skeleton, StatusChip, Tabs } from '@/components/ui';
 import { BudgetPanel } from '@/components/BudgetPanel';
 import { IconCheck, IconLock } from '@/components/icons';
+import { useI18n } from '@/i18n';
 
 type TabId = 'overview' | 'budget' | 'schedule' | 'costs' | 'forecast';
 
@@ -33,6 +34,7 @@ export function ProjectDetail() {
   const { id = '' } = useParams();
   const { can } = useAuth();
   const { client } = useSap();
+  const { t } = useI18n();
   const [tab, setTab] = useState<TabId>('overview');
 
   const project = useSapData((c) => c.getProject(id), [id]);
@@ -107,11 +109,11 @@ export function ProjectDetail() {
 
       <Tabs<TabId>
         tabs={[
-          { id: 'overview', label: 'Overview' },
-          { id: 'budget', label: 'Budget' },
-          { id: 'schedule', label: 'WBS & Schedule' },
-          { id: 'costs', label: 'Costs' },
-          { id: 'forecast', label: 'Forecast' },
+          { id: 'overview', label: t('tab.overview') },
+          { id: 'budget', label: t('tab.budget') },
+          { id: 'schedule', label: t('tab.schedule') },
+          { id: 'costs', label: t('tab.costs') },
+          { id: 'forecast', label: t('tab.forecast') },
         ]}
         active={tab}
         onChange={setTab}
