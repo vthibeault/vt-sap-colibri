@@ -1,5 +1,6 @@
 import type { SapPsClient } from '../client';
 import type {
+  BudgetDocument,
   ConnectionInfo,
   CostLine,
   Milestone,
@@ -76,6 +77,8 @@ interface MockEdits {
   activities: Record<string, NetworkActivity[]>;
   statuses: Record<string, SystemStatus>;
   created?: CreatedProject[];
+  /** Posted budget change documents (the ORIG docs are derived, not stored). */
+  budgetDocs?: BudgetDocument[];
 }
 
 function loadEdits(): MockEdits {
@@ -123,11 +126,19 @@ export class MockSapClient implements SapPsClient {
     );
   }
 
+  /** Net budget change from posted documents, per project or single WBS. */
+  private budgetDelta(projectId: string, wbsId?: string): number {
+    return (this.edits.budgetDocs ?? [])
+      .filter((d) => d.projectId === projectId && (!wbsId || d.wbsId === wbsId))
+      .reduce((s, d) => s + d.amount, 0);
+  }
+
   async listProjects(): Promise<ProjectDefinition[]> {
     const created = (this.edits.created ?? []).map((c) => c.project);
     const projects = [...created, ...this.data.projects].map((p) => ({
       ...p,
       status: this.edits.statuses[p.projectId] ?? p.status,
+      budget: p.budget + this.budgetDelta(p.projectId),
     }));
     return this.simulate(projects);
   }
@@ -142,9 +153,21 @@ export class MockSapClient implements SapPsClient {
     return (this.edits.created ?? []).find((c) => c.project.projectId === projectId);
   }
 
-  async getWbsElements(projectId: string): Promise<WbsElement[]> {
+  /** Base (pre-overlay) WBS elements of a project. */
+  private baseWbs(projectId: string): WbsElement[] {
     const created = this.createdFor(projectId);
-    return this.simulate(created ? created.wbs : this.data.wbs.filter((w) => w.projectId === projectId));
+    return created ? created.wbs : this.data.wbs.filter((w) => w.projectId === projectId);
+  }
+
+  async getWbsElements(projectId: string): Promise<WbsElement[]> {
+    const wbs = this.baseWbs(projectId).map((w) => ({
+      ...w,
+      budget:
+        w.budget +
+        // level-1 element mirrors the project: all deltas roll up to it
+        (w.parentWbsId ? this.budgetDelta(projectId, w.wbsId) : this.budgetDelta(projectId)),
+    }));
+    return this.simulate(wbs);
   }
 
   async getActivities(projectId: string): Promise<NetworkActivity[]> {
@@ -164,6 +187,46 @@ export class MockSapClient implements SapPsClient {
       ? this.data.costLines.filter((c) => c.projectId === projectId)
       : this.data.costLines;
     return this.simulate(lines, 150, 450);
+  }
+
+  async getBudgetDocuments(projectId: string): Promise<BudgetDocument[]> {
+    // ORIG documents are derived from the base phase budgets (dated at the
+    // project start); posted supplements/returns follow chronologically.
+    const phases = this.baseWbs(projectId).filter((w) => w.parentWbsId);
+    const orig: BudgetDocument[] = phases.map((w, i) => ({
+      id: `${projectId}-B${i + 1}`,
+      projectId,
+      wbsId: w.wbsId,
+      date: w.startDate,
+      type: 'ORIG',
+      amount: w.budget,
+      reason: 'Original budget',
+      user: 'SYSTEM',
+    }));
+    const posted = (this.edits.budgetDocs ?? []).filter((d) => d.projectId === projectId);
+    return this.simulate([...orig, ...posted]);
+  }
+
+  async updateBudget(projectId: string, wbsId: string, newBudget: number, reason: string): Promise<void> {
+    const base = this.baseWbs(projectId).find((w) => w.wbsId === wbsId);
+    if (!base || !base.parentWbsId) throw new Error(`WBS element ${wbsId} not budgetable`);
+    const current = base.budget + this.budgetDelta(projectId, wbsId);
+    const delta = Math.round(newBudget - current);
+    if (delta === 0) return;
+    const docs = this.edits.budgetDocs ?? [];
+    docs.push({
+      id: `${projectId}-B${Date.now()}`,
+      projectId,
+      wbsId,
+      date: new Date().toISOString().slice(0, 10),
+      type: delta > 0 ? 'SUPL' : 'RETN',
+      amount: delta,
+      reason: reason.trim() || (delta > 0 ? 'Budget supplement' : 'Budget return'),
+      user: sessionStorage.getItem('colibri.persona') ?? 'UNKNOWN',
+    });
+    this.edits.budgetDocs = docs;
+    this.saveEdits();
+    await this.simulate(undefined, 250, 550);
   }
 
   async createProject(input: NewProjectInput): Promise<ProjectDefinition> {

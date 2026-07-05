@@ -1,5 +1,6 @@
 import type { SapConfig, SapPsClient } from './client';
 import type {
+  BudgetDocument,
   ConnectionInfo,
   CostLine,
   Milestone,
@@ -236,6 +237,19 @@ export class ODataSapClient implements SapPsClient {
       commitment: 0,
       percentComplete: 0,
     }));
+  }
+
+  async getBudgetDocuments(_projectId: string): Promise<BudgetDocument[]> {
+    throw new Error(
+      'Live budget documents: expose budget entry documents via a CDS query (I_BudgetEntryDocument-based) or a Z OData service, then map in ODataSapClient.getBudgetDocuments.',
+    );
+  }
+
+  async updateBudget(_projectId: string, _wbsId: string, _newBudget: number, _reason: string): Promise<void> {
+    // Classic PS budgeting has no released OData API; on-prem use BAPI
+    // KBPP_EXTERN_UPDATE_CO / CJ37-CJ38 flows behind a Z-service, or the
+    // availability-control APIs on S/4 Cloud enterprise projects.
+    throw new Error('Live budget write-back requires a budgeting service — see the note in ODataSapClient.updateBudget.');
   }
 
   async createProject(input: NewProjectInput): Promise<ProjectDefinition> {

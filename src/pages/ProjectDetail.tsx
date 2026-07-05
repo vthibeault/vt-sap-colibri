@@ -22,9 +22,10 @@ import { TODAY } from '@/sap/mock/data';
 import { toast } from '@/lib/toast';
 import { NovaChart } from '@/charts/NovaChart';
 import { ChartCard, HealthChip, KpiTile, Skeleton, StatusChip, Tabs } from '@/components/ui';
+import { BudgetPanel } from '@/components/BudgetPanel';
 import { IconCheck, IconLock } from '@/components/icons';
 
-type TabId = 'overview' | 'schedule' | 'costs' | 'forecast';
+type TabId = 'overview' | 'budget' | 'schedule' | 'costs' | 'forecast';
 
 const DAY = 86_400_000;
 
@@ -107,6 +108,7 @@ export function ProjectDetail() {
       <Tabs<TabId>
         tabs={[
           { id: 'overview', label: 'Overview' },
+          { id: 'budget', label: 'Budget' },
           { id: 'schedule', label: 'WBS & Schedule' },
           { id: 'costs', label: 'Costs' },
           { id: 'forecast', label: 'Forecast' },
@@ -116,6 +118,7 @@ export function ProjectDetail() {
       />
 
       {tab === 'overview' && <OverviewTab {...{ p, phases, milestones: milestones.data ?? [], loading: project.loading || wbs.loading }} />}
+      {tab === 'budget' && <BudgetPanel projectId={id} />}
       {tab === 'schedule' && (
         <ScheduleTab
           projectId={id}

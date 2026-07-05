@@ -145,6 +145,23 @@ export interface SapUser {
   authorizations: Authorization[];
 }
 
+/** Budgeting document types, as in classic PS budgeting (CJ30/CJ37/CJ38). */
+export type BudgetDocType = 'ORIG' | 'SUPL' | 'RETN';
+
+/** One budgeting transaction against a WBS element. */
+export interface BudgetDocument {
+  id: string;
+  projectId: string;
+  wbsId: string;
+  /** ISO date of the posting. */
+  date: string;
+  type: BudgetDocType;
+  /** Signed delta in project currency (ORIG carries the initial amount). */
+  amount: number;
+  reason: string;
+  user: string;
+}
+
 /** Input for creating a project (definition + phase WBS skeleton). */
 export interface NewProjectInput {
   description: string;

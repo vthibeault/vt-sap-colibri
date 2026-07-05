@@ -1,4 +1,5 @@
 import type {
+  BudgetDocument,
   ConnectionInfo,
   CostLine,
   Milestone,
@@ -28,6 +29,14 @@ export interface SapPsClient {
   getMilestones(projectId: string): Promise<Milestone[]>;
   /** Cost lines for one project, or the whole portfolio when omitted. */
   getCostLines(projectId?: string): Promise<CostLine[]>;
+
+  /** Budgeting document history for a project (original, supplements, returns). */
+  getBudgetDocuments(projectId: string): Promise<BudgetDocument[]>;
+  /**
+   * Set a WBS element's current budget; the delta is posted as a supplement
+   * (CJ37-style) or return (CJ38-style) document with the given reason.
+   */
+  updateBudget(projectId: string, wbsId: string, newBudget: number, reason: string): Promise<void>;
 
   /** Create a project definition with its phase WBS skeleton. */
   createProject(input: NewProjectInput): Promise<ProjectDefinition>;

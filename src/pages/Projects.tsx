@@ -5,6 +5,7 @@ import { useAuth } from '@/state/AuthContext';
 import type { SystemStatus } from '@/sap/types';
 import { fmtDate, fmtMoney } from '@/lib/format';
 import { cpi, projectHealth } from '@/lib/metrics';
+import { exportCsv } from '@/lib/csv';
 import { HealthChip, Meter, Skeleton, StatusChip, EmptyState } from '@/components/ui';
 import { NewProjectWizard } from '@/components/NewProjectWizard';
 import { IconPlus, IconSearch } from '@/components/icons';
@@ -60,6 +61,21 @@ export function Projects() {
           ))}
         </div>
         <span style={{ flex: 1 }} />
+        <button
+          className="btn ghost"
+          onClick={() =>
+            exportCsv(
+              'projects.csv',
+              ['Project', 'Description', 'Status', 'Priority', 'Responsible', 'Start', 'Finish', 'Budget (EUR)', 'Actual (EUR)', 'Commitment (EUR)', 'Progress', 'CPI'],
+              filtered.map((p) => [
+                p.projectId, p.description, p.status, p.priority, p.responsible, p.startDate, p.finishDate,
+                p.budget, p.actualCost, p.commitment, `${Math.round(p.percentComplete * 100)}%`, cpi(p).toFixed(2),
+              ]),
+            )
+          }
+        >
+          Export CSV
+        </button>
         {can('C_PROJ', '01') && (
           <button className="btn primary" onClick={() => setWizardOpen(true)}>
             <IconPlus style={{ width: 15, height: 15 }} /> New project
